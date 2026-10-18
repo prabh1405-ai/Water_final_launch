@@ -62,7 +62,12 @@ export function AppNav() {
                 Menu
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[160px]">
+            <DropdownMenuContent
+              align="start"
+              side="bottom"
+              sideOffset={8}
+              className="z-[100] w-[var(--radix-dropdown-menu-trigger-width)]"
+            >
               {links.map((l) => (
                 <DropdownMenuItem key={l.to} asChild>
                   <Link
