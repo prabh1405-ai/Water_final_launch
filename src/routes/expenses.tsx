@@ -26,6 +26,14 @@ import {
 } from "@/lib/store";
 
 const DIESEL_OPTIONS = [0, 200, 300, 350, 400, 450, 500, 550, 600, 700];
+const FILLING_BATCH_COUNT = 4;
+
+function createBatchInputs(batches: WaterFillingRecord["batches"] = []) {
+  return Array.from({ length: FILLING_BATCH_COUNT }, (_, index) => ({
+    cans: batches[index] && batches[index].cans > 0 ? String(batches[index].cans) : "",
+    rate: batches[index] ? String(batches[index].rate) : "12",
+  }));
+}
 
 function shiftDate(iso: string, days: number) {
   const date = new Date(`${iso}T00:00:00`);
@@ -62,11 +70,7 @@ function ExpensesPage() {
   const [date, setDate] = useState<string>("");
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectionMode, setSelectionMode] = useState<"day" | "week">("day");
-  const [batchInputs, setBatchInputs] = useState([
-    { cans: "", rate: "12" },
-    { cans: "", rate: "12" },
-    { cans: "", rate: "12" },
-  ]);
+  const [batchInputs, setBatchInputs] = useState(() => createBatchInputs());
   const [isEditingFilling, setIsEditingFilling] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -83,13 +87,7 @@ function ExpensesPage() {
 
   const selectedFilling = data.waterFilling.find((record) => record.date === date);
   useEffect(() => {
-    const batches = selectedFilling?.batches ?? [];
-    setBatchInputs(
-      Array.from({ length: 3 }, (_, index) => ({
-        cans: batches[index] && batches[index].cans > 0 ? String(batches[index].cans) : "",
-        rate: batches[index] ? String(batches[index].rate) : "12",
-      })),
-    );
+    setBatchInputs(createBatchInputs(selectedFilling?.batches));
   }, [date, selectedFilling]);
   const showFillingForm = !selectedFilling || isEditingFilling;
   const [diesel, setDiesel] = useState("");
@@ -180,24 +178,12 @@ function ExpensesPage() {
   }
 
   function editWaterFilling() {
-    const batches = selectedFilling?.batches ?? [];
-    setBatchInputs(
-      Array.from({ length: 3 }, (_, index) => ({
-        cans: batches[index] && batches[index].cans > 0 ? String(batches[index].cans) : "",
-        rate: batches[index] ? String(batches[index].rate) : "12",
-      })),
-    );
+    setBatchInputs(createBatchInputs(selectedFilling?.batches));
     setIsEditingFilling(true);
   }
 
   function cancelWaterFillingEdit() {
-    const batches = selectedFilling?.batches ?? [];
-    setBatchInputs(
-      Array.from({ length: 3 }, (_, index) => ({
-        cans: batches[index] && batches[index].cans > 0 ? String(batches[index].cans) : "",
-        rate: batches[index] ? String(batches[index].rate) : "12",
-      })),
-    );
+    setBatchInputs(createBatchInputs(selectedFilling?.batches));
     setIsEditingFilling(false);
   }
 
@@ -626,7 +612,7 @@ function ExpensesPage() {
               {selectionMode === "week" ? "Weekly water filling charges" : "Daily water filling charges"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Record up to three batches filled by the water company. Batch charges are tracked
+              Record up to three regular batches and one TVS batch. Batch charges are tracked
               separately from other expenses.
             </p>
           </div>
@@ -641,7 +627,9 @@ function ExpensesPage() {
                   className="grid items-end gap-3 rounded-md border border-border p-3 sm:grid-cols-[minmax(120px,1fr)_minmax(120px,1fr)_minmax(140px,1fr)]"
                 >
                   <div className="space-y-2">
-                    <Label htmlFor={`filling-batch-${index + 1}-cans`}>Batch {index + 1} — cans filled</Label>
+                    <Label htmlFor={`filling-batch-${index + 1}-cans`}>
+                      {index === 3 ? "TVS batch" : `Batch ${index + 1}`} — cans filled
+                    </Label>
                     <Input
                       id={`filling-batch-${index + 1}-cans`}
                       inputMode="numeric"
@@ -663,7 +651,9 @@ function ExpensesPage() {
                     />
                   </div>
                   <div className="flex h-11 items-center justify-between rounded-md bg-muted/40 px-3">
-                    <span className="text-sm text-muted-foreground">Batch {index + 1} bill</span>
+                    <span className="text-sm text-muted-foreground">
+                      {index === 3 ? "TVS batch" : `Batch ${index + 1}`} bill
+                    </span>
                     <span className="font-semibold tabular-nums text-destructive">
                       {rupees(batchBills[index] ?? 0)}
                     </span>
@@ -713,7 +703,9 @@ function ExpensesPage() {
                 <tbody>
                   {selectedFilling.batches.map((batch, index) => (
                     <tr key={index} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 font-medium">Batch {index + 1}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {index === 3 ? "TVS batch" : `Batch ${index + 1}`}
+                      </td>
                       <td className="px-4 py-3 text-right tabular-nums">{batch.cans}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{rupees(batch.rate)}</td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums text-destructive">
@@ -753,6 +745,7 @@ function ExpensesPage() {
                     <th className="px-4 py-3 text-right font-medium">Batch 1</th>
                     <th className="px-4 py-3 text-right font-medium">Batch 2</th>
                     <th className="px-4 py-3 text-right font-medium">Batch 3</th>
+                    <th className="px-4 py-3 text-right font-medium">TVS batch</th>
                     <th className="px-4 py-3 text-right font-medium">Daily total</th>
                   </tr>
                 </thead>
@@ -767,7 +760,7 @@ function ExpensesPage() {
                           year: "numeric",
                         })}
                       </td>
-                      {[0, 1, 2].map((index) => {
+                      {Array.from({ length: FILLING_BATCH_COUNT }, (_, index) => {
                         const batch = record.batches[index];
                         return (
                           <td key={index} className="px-4 py-3 text-right tabular-nums">
@@ -789,7 +782,7 @@ function ExpensesPage() {
                   ))}
                   {visibleFillingRecords.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                         No water filling charges recorded for this week
                       </td>
                     </tr>
@@ -798,7 +791,7 @@ function ExpensesPage() {
                 {visibleFillingRecords.length > 0 && (
                   <tfoot>
                     <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-                      <td colSpan={4} className="px-4 py-3">Weekly water filling total</td>
+                      <td colSpan={5} className="px-4 py-3">Weekly water filling total</td>
                       <td className="px-4 py-3 text-right tabular-nums text-destructive">
                         {rupees(
                           visibleFillingRecords.reduce(
