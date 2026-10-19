@@ -10,7 +10,8 @@ the existing browser storage.
 1. Create a new Supabase project.
 2. In **SQL Editor**, review and run [`private-ledger.sql`](./private-ledger.sql).
    This creates new owner-scoped tables and does not touch the existing
-   `customers`, `transactions`, or `expenses` tables.
+   `customers`, `transactions`, or `expenses` tables. If the ledger tables
+   already exist, rerun the script to add any new optional columns safely.
 3. In **Authentication → Users**, create the single user who should sign in.
    Disable public signups in the project's Auth settings; signup is not
    provided in the app.

@@ -8,6 +8,7 @@ export type Customer = {
   name: string;
   contact: string;
   phone: string;
+  phoneAlt?: string;
   defaultRate: number;
   openingPending: number;
   openingCans: number;
