@@ -7,12 +7,16 @@ create table if not exists public.ledger_customers (
   name text not null,
   contact text not null default '',
   phone text not null default '',
+  "phoneAlt" text not null default '',
   "defaultRate" integer not null default 30,
   "openingPending" integer not null default 0,
   "openingCans" integer not null default 0,
   notes text,
   primary key (user_id, id)
 );
+
+alter table public.ledger_customers
+  add column if not exists "phoneAlt" text not null default '';
 
 create table if not exists public.ledger_transactions (
   user_id uuid not null references auth.users (id) on delete cascade,

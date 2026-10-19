@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
@@ -30,9 +31,11 @@ import {
   timestampForEntry,
   transactionEntries,
   transactionEntryKinds,
+  updateCustomer,
   updateTxn,
   useData,
   useHydratedToday,
+  type Customer,
   type Txn,
 } from "@/lib/store";
 
@@ -314,11 +317,203 @@ function EditTxnDialog({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   );
 }
 
+function EditCustomerDialog({
+  customer,
+  onClose,
+}: {
+  customer: Customer;
+  onClose: () => void;
+}) {
+  const customers = useData().customers;
+  const [name, setName] = useState(customer.name);
+  const [contact, setContact] = useState(customer.contact);
+  const [phone, setPhone] = useState(customer.phone);
+  const [phoneAlt, setPhoneAlt] = useState(customer.phoneAlt ?? "");
+  const [rate, setRate] = useState(String(customer.defaultRate));
+  const [openingPending, setOpeningPending] = useState(String(customer.openingPending));
+  const [openingCans, setOpeningCans] = useState(String(customer.openingCans ?? 0));
+  const [notes, setNotes] = useState(customer.notes ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      toast.error("Enter a company name");
+      return;
+    }
+    if (
+      customers.some(
+        (item) =>
+          item.id !== customer.id &&
+          item.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+      )
+    ) {
+      toast.error("This company already exists");
+      return;
+    }
+
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const normalizedPhoneAlt = phoneAlt.replace(/\D/g, "");
+    if (normalizedPhone && !/^\d{10}$/.test(normalizedPhone)) {
+      toast.error("Enter a valid 10-digit primary phone number or leave it blank");
+      return;
+    }
+    if (normalizedPhoneAlt && !/^\d{10}$/.test(normalizedPhoneAlt)) {
+      toast.error("Enter a valid 10-digit extra phone number or leave it blank");
+      return;
+    }
+    if (!RATES.includes(Number(rate))) {
+      toast.error("Choose a valid default rate");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateCustomer(customer.id, {
+        name: trimmedName,
+        contact: contact.trim(),
+        phone: normalizedPhone,
+        phoneAlt: normalizedPhoneAlt,
+        defaultRate: Number(rate),
+        openingPending: Math.max(0, Math.floor(Number(openingPending || 0))),
+        openingCans: Math.max(0, Math.floor(Number(openingCans || 0))),
+        notes: notes.trim(),
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? `Could not update customer: ${error.message}`
+          : "Could not update customer",
+      );
+      setSaving(false);
+      return;
+    }
+    toast.success("Customer profile updated");
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit customer profile</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-customer-name">Company name</Label>
+            <Input
+              id="edit-customer-name"
+              className="h-11"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-customer-contact">Contact person</Label>
+            <Input
+              id="edit-customer-contact"
+              className="h-11"
+              value={contact}
+              onChange={(event) => setContact(event.target.value)}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-customer-phone">Mobile number</Label>
+              <Input
+                id="edit-customer-phone"
+                inputMode="tel"
+                type="tel"
+                maxLength={10}
+                placeholder="10-digit number"
+                className="h-11"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-customer-phone-alt">Extra mobile number</Label>
+              <Input
+                id="edit-customer-phone-alt"
+                inputMode="tel"
+                type="tel"
+                maxLength={10}
+                placeholder="Optional"
+                className="h-11"
+                value={phoneAlt}
+                onChange={(event) =>
+                  setPhoneAlt(event.target.value.replace(/\D/g, "").slice(0, 10))
+                }
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Default rate per can</Label>
+            <Select value={rate} onValueChange={setRate}>
+              <SelectTrigger className="h-11 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RATES.map((item) => (
+                  <SelectItem key={item} value={String(item)}>
+                    ₹{item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-customer-opening">Opening pending (₹)</Label>
+              <Input
+                id="edit-customer-opening"
+                inputMode="numeric"
+                className="h-11"
+                value={openingPending}
+                onChange={(event) =>
+                  setOpeningPending(event.target.value.replace(/[^0-9]/g, ""))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-customer-opening-cans">Opening cans on record</Label>
+              <Input
+                id="edit-customer-opening-cans"
+                inputMode="numeric"
+                className="h-11"
+                value={openingCans}
+                onChange={(event) => setOpeningCans(event.target.value.replace(/[^0-9]/g, ""))}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-customer-notes">Notes</Label>
+            <Textarea
+              id="edit-customer-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void save()} disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CustomerLedger() {
   const { id } = Route.useParams();
   const data = useData();
   const [mode, setMode] = useState<"delivery" | "payment" | null>(null);
   const [editing, setEditing] = useState<Txn | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState(false);
   const [transactionFrom, setTransactionFrom] = useState("");
   const [transactionTo, setTransactionTo] = useState("");
   const hydratedToday = useHydratedToday();
@@ -411,7 +606,19 @@ function CustomerLedger() {
       <Link to="/customers" className="text-sm text-muted-foreground hover:text-foreground">
         ← Customers
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">{customer.name}</h1>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">{customer.name}</h1>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Edit customer profile"
+          title="Edit customer profile"
+          onClick={() => setEditingCustomer(true)}
+        >
+          <Pencil className="size-4" />
+        </Button>
+      </div>
 
       <div className="mt-4 rounded-lg border border-border bg-card p-5">
         <p className="text-sm text-muted-foreground">Current pending</p>
@@ -423,11 +630,11 @@ function CustomerLedger() {
             <dt className="text-muted-foreground">Contact person</dt>
             <dd>{customer.contact || "—"}</dd>
           </div>
-          <div className="flex justify-between sm:block">
-            <dt className="text-muted-foreground">Phone</dt>
+          <div className="flex justify-between gap-3 sm:block">
+            <dt className="text-muted-foreground">Mobile number</dt>
             <dd>
               {customer.phone ? (
-                <a href={`tel:${customer.phone}`} className="hover:underline text-primary">
+                <a href={`tel:${customer.phone}`} className="text-primary hover:underline">
                   {customer.phone}
                 </a>
               ) : (
@@ -435,6 +642,16 @@ function CustomerLedger() {
               )}
             </dd>
           </div>
+          {customer.phoneAlt && (
+            <div className="flex justify-between gap-3 sm:block">
+              <dt className="text-muted-foreground">Extra mobile number</dt>
+              <dd>
+                <a href={`tel:${customer.phoneAlt}`} className="text-primary hover:underline">
+                  {customer.phoneAlt}
+                </a>
+              </dd>
+            </div>
+          )}
           <div className="flex justify-between sm:block">
             <dt className="text-muted-foreground">Default rate</dt>
             <dd>₹{customer.defaultRate} per can</dd>
@@ -452,7 +669,7 @@ function CustomerLedger() {
             <dd>{cansWith(data, customer.id)}</dd>
           </div>
           {customer.notes && (
-            <div className="flex justify-between sm:block sm:col-span-2">
+            <div className="flex flex-col gap-1 sm:col-span-2">
               <dt className="text-muted-foreground">Notes</dt>
               <dd>{customer.notes}</dd>
             </div>
@@ -468,6 +685,9 @@ function CustomerLedger() {
           <ExportExcel defaultCompanyId={customer.id} hideCompanySelect />
         </div>
       </div>
+      {editingCustomer && (
+        <EditCustomerDialog customer={customer} onClose={() => setEditingCustomer(false)} />
+      )}
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <div>
